@@ -122,3 +122,14 @@ The fork publishes manually validated Apple Silicon DMGs under `macos-v<version>
 `macos-v1.9.1.E4`, with asset `BitChord-1.9.1.E4-macos-arm64.dmg`. This tag namespace does not trigger
 the upstream `v*.*.*` multi-platform release workflow. Download buttons target the exact macOS asset;
 iOS and Windows keep their own dedicated releases.
+
+Both Mac architectures come from the manual **macOS Build** workflow
+([`.github/workflows/macos.yml`](../.github/workflows/macos.yml)): Actions → macOS Build → Run workflow,
+version `1.9.1.E4`. It builds `-macos-arm64` on `macos-14` and `-macos-x64` on `macos-15-intel`,
+checks that every native in each bundle matches its CPU, and attaches the DMG, PKG and ZIP of both
+to the `macos-v<version>` release. It passes `-Pbitchord.update.repo=<owner>/<repo>` so the update
+check reads that repository's releases.
+
+An Intel build stays on ONNX Runtime 1.23.2, the last release whose jar carries an `osx-x64`
+native; later releases ship Apple Silicon only. A universal (fat) app is not built: jpackage
+bundles a single-architecture Java runtime, and the per-architecture natives live in separate jars.

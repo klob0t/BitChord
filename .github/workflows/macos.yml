@@ -1,0 +1,198 @@
+name: macOS Build
+
+# Builds the macOS edit releases (macos-v<version>) for both Apple Silicon and Intel Macs.
+#
+# jpackage bundles the Java runtime of the machine it runs on, and the Gradle build picks the
+# Skiko, JavaFX, FFmpeg and ONNX Runtime natives from that runtime's os.arch. So each
+# architecture is built on a runner of that architecture: macos-14 is Apple Silicon,
+# macos-15-intel is x86_64. Each Mac then downloads the DMG for its own CPU, which is also the
+# file the in-app update check looks for (-macos-arm64.dmg or -macos-x64.dmg).
+
+on:
+  # A push to this branch builds and publishes 1.9.1.E4 straight away, which also works before the
+  # workflow is on the repository's default branch (the Actions "Run workflow" button needs that).
+  push:
+    branches: [macos-intel]
+    paths:
+      - ".github/workflows/macos.yml"
+      - "desktopApp/**"
+      - "desktopUi/**"
+      - "shared/**"
+      - "native/**"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to stamp into the packages, without the leading v (e.g. 1.9.1.E4)"
+        required: true
+        default: "1.9.1.E4"
+      publish:
+        description: "Attach the DMG, PKG and ZIP files to the macos-v<version> release"
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-${{ inputs.version || '1.9.1.E4' }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    name: macOS · dmg, pkg, zip (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            machine: arm64
+          - os: macos-15-intel
+            arch: x64
+            machine: x86_64
+    runs-on: ${{ matrix.os }}
+    env:
+      # The native analyser would otherwise require the runner's own macOS version. 12 matches
+      # what the bundled Java 21 runtime supports and keeps older Intel Macs working.
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          architecture: ${{ matrix.arch }}
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: The runner and the JDK are the expected architecture
+        run: |
+          uname -m
+          test "$(uname -m)" = "${{ matrix.machine }}"
+          java -XshowSettings:properties -version 2>&1 | grep 'os.arch'
+
+      - name: Write local.properties
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          : > local.properties
+          [ -n "$LASTFM_API_KEY" ] && echo "LASTFM_API_KEY=$LASTFM_API_KEY" >> local.properties
+          [ -n "$LASTFM_SECRET" ] && echo "LASTFM_SECRET=$LASTFM_SECRET" >> local.properties
+          true
+
+      - run: chmod +x gradlew
+
+      - name: Tests
+        run: |
+          ./gradlew :desktopApp:test \
+            -Pbitchord.version=${{ inputs.version || '1.9.1.E4' }} \
+            -Pbitchord.update.repo=${{ github.repository }}
+
+      - name: Build DMG, PKG and the app bundle
+        run: |
+          ./gradlew :desktopApp:packageDmg :desktopApp:packagePkg :desktopApp:createDistributable \
+            -Pbitchord.version=${{ inputs.version || '1.9.1.E4' }} \
+            -Pbitchord.update.repo=${{ github.repository }}
+
+      - name: Every native in the bundle is built for ${{ matrix.machine }}
+        run: |
+          app=desktopApp/build/compose/binaries/main/app/BitChord.app
+          want="${{ matrix.machine }}"
+
+          # The bundled Java runtime and the launcher.
+          for f in "$app/Contents/MacOS/BitChord" "$app/Contents/runtime/Contents/Home/lib/libjvm.dylib" \
+                   "$app/Contents/runtime/Contents/Home/lib/server/libjvm.dylib"; do
+            [ -f "$f" ] || continue
+            echo "$(lipo -archs "$f")  $f"
+            lipo -archs "$f" | grep -qw "$want"
+          done
+
+          jar=$(ls "$app"/Contents/app/desktopApp*.jar)
+          # Listed to a file first: under pipefail, `jar tf | grep -q` can fail on SIGPIPE.
+          jar tf "$jar" > "$RUNNER_TEMP/app-jar.txt"
+          grep -q 'models/.*\.onnx' "$RUNNER_TEMP/app-jar.txt"
+
+          # The Automix analyser, when cmake built it.
+          if grep -q 'native/libbitchord_analysis.dylib' "$RUNNER_TEMP/app-jar.txt"; then
+            tmp=$(mktemp -d)
+            (cd "$tmp" && unzip -q -o "$OLDPWD/$jar" 'native/libbitchord_analysis.dylib')
+            echo "$(lipo -archs "$tmp/native/libbitchord_analysis.dylib")  analyser"
+            lipo -archs "$tmp/native/libbitchord_analysis.dylib" | grep -qw "$want"
+            otool -l "$tmp/native/libbitchord_analysis.dylib" | grep -A3 -E 'LC_BUILD_VERSION|LC_VERSION_MIN' | grep -E 'minos|version' || true
+          else
+            echo "::warning::The Automix analyser was not built into the jar"
+          fi
+
+          # The per-architecture dependency jars resolved for this CPU.
+          ls "$app/Contents/app" > "$RUNNER_TEMP/app-libs.txt"
+          grep -E 'onnxruntime|skiko|javafx-web|ffmpeg|javacpp' "$RUNNER_TEMP/app-libs.txt" || true
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            grep -q 'macosx-x86_64' "$RUNNER_TEMP/app-libs.txt"
+            grep -q 'skiko-awt-runtime-macos-x64' "$RUNNER_TEMP/app-libs.txt"
+            ort=$(ls "$app"/Contents/app/onnxruntime-*.jar)
+            jar tf "$ort" > "$RUNNER_TEMP/ort-jar.txt"
+            grep -q 'ai/onnxruntime/native/osx-x64/libonnxruntime.dylib' "$RUNNER_TEMP/ort-jar.txt"
+          else
+            grep -q 'macosx-arm64' "$RUNNER_TEMP/app-libs.txt"
+            grep -q 'skiko-awt-runtime-macos-arm64' "$RUNNER_TEMP/app-libs.txt"
+          fi
+
+      - name: Collect
+        run: |
+          v="${{ inputs.version || '1.9.1.E4' }}"
+          arch="${{ matrix.arch }}"
+          mkdir -p dist
+          for f in desktopApp/build/compose/binaries/main/dmg/*.dmg; do
+            [ -f "$f" ] && cp "$f" "dist/BitChord-$v-macos-$arch.dmg"
+          done
+          for f in desktopApp/build/compose/binaries/main/pkg/*.pkg; do
+            [ -f "$f" ] && cp "$f" "dist/BitChord-$v-macos-$arch.pkg"
+          done
+          ditto -c -k --keepParent desktopApp/build/compose/binaries/main/app/BitChord.app "dist/BitChord-$v-macos-$arch.zip"
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}-artifacts
+          path: dist/*
+
+  publish:
+    name: Publish macos-v${{ inputs.version || '1.9.1.E4' }}
+    needs: macos
+    if: ${{ github.event_name == 'push' || inputs.publish }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "macos-*-artifacts"
+          merge-multiple: true
+          path: dist
+
+      - run: ls -lh dist
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: macos-v${{ inputs.version || '1.9.1.E4' }}
+          target_commitish: ${{ github.sha }}
+          name: BitChord ${{ inputs.version || '1.9.1.E4' }} for macOS (Apple Silicon & Intel)
+          body: |
+            BitChord ${{ inputs.version || '1.9.1.E4' }} for macOS.
+
+            | Your Mac | Download |
+            |---|---|
+            | Apple Silicon (M1/M2/M3/M4 and later) | `BitChord-${{ inputs.version || '1.9.1.E4' }}-macos-arm64.dmg` |
+            | Intel | `BitChord-${{ inputs.version || '1.9.1.E4' }}-macos-x64.dmg` |
+
+            Not sure which you have? Apple menu → About This Mac: "Chip: Apple M…" is Apple Silicon,
+            "Processor: … Intel …" is Intel.
+
+            The builds are unsigned. If macOS says the app is damaged or from an unidentified
+            developer, run `xattr -cr /Applications/BitChord.app` once after installing.
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -37,6 +37,17 @@ class DesktopMacUpdatesTest {
         assertNull(DesktopUpdateChecker.macInstallerUrl(stable, arm64 = false))
     }
 
+    @Test fun anIntelMacIsOfferedTheX64InstallerFromAReleaseCarryingBoth() {
+        val both = Json.parseToJsonElement("""{"tag_name":"macos-v1.9.1.E4","draft":false,"prerelease":false,"assets":[
+            {"name":"BitChord-1.9.1.E4-macos-arm64.dmg","state":"uploaded","browser_download_url":"https://example.invalid/BitChord-1.9.1.E4-macos-arm64.dmg"},
+            {"name":"BitChord-1.9.1.E4-macos-x64.dmg","state":"uploaded","browser_download_url":"https://example.invalid/BitChord-1.9.1.E4-macos-x64.dmg"}]}""") as JsonObject
+        val armOnly = release("macos-v1.9.2.E1", "BitChord-1.9.2.E1-macos-arm64.dmg")
+        // A newer release that has no Intel build must not be offered to an Intel Mac.
+        assertEquals(both, DesktopUpdateChecker.selectMacRelease(JsonArray(listOf(armOnly, both)), arm64 = false))
+        assertTrue(DesktopUpdateChecker.macInstallerUrl(both, arm64 = false)!!.endsWith("-macos-x64.dmg"))
+        assertTrue(DesktopUpdateChecker.macInstallerUrl(both, arm64 = true)!!.endsWith("-macos-arm64.dmg"))
+    }
+
     @Test fun editBuildComparisonAndExistingBetaOrderingRemainCorrect() {
         assertTrue(DesktopUpdateChecker.isNewer("1.9.1.E4", "1.9.1.E3"))
         assertFalse(DesktopUpdateChecker.isNewer("1.9.1.E4", "1.9.1.E4"))

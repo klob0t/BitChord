@@ -60,6 +60,10 @@ val listenTogetherServer = localProperty("LISTEN_TOGETHER_SERVER")
 val lastfmApiKey = localProperty("LASTFM_API_KEY")
 val lastfmSecret = localProperty("LASTFM_SECRET")
 
+// The GitHub repository the macOS update check reads releases from ("owner/name"). A fork's CI
+// passes its own, so a build published there is offered that fork's next release.
+val updateRepository = providers.gradleProperty("bitchord.update.repo").orNull?.trim().orEmpty()
+
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -90,7 +94,11 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
 
     // Automix runs the same two models the Android build does.
-    implementation("com.microsoft.onnxruntime:onnxruntime:1.29.0")
+    // ONNX Runtime stopped shipping an Intel-Mac (osx-x64) native after 1.23.2, so an Intel Mac
+    // build stays on that release; every other target keeps the current one. Both load the
+    // opset-17 models the same way, and :shared compiles against the older 1.20 API anyway.
+    val onnxRuntimeVersion = if (targetOs == "macos" && !isArm64) "1.23.2" else "1.29.0"
+    implementation("com.microsoft.onnxruntime:onnxruntime:$onnxRuntimeVersion")
 
     // Decoding, resampling and demuxing for the audio engine.
     implementation("org.bytedeco:javacpp:$javacppVersion")
@@ -513,6 +521,9 @@ compose.desktop {
         }
         if (listenTogetherServer.isNotBlank()) {
             jvmArgs("-Dbitchord.listentogether.server=$listenTogetherServer")
+        }
+        if (updateRepository.isNotBlank()) {
+            jvmArgs("-Dbitchord.update.repo=$updateRepository")
         }
 
         buildTypes.release.proguard {

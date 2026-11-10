@@ -17,6 +17,7 @@ YouTube Music, your own library, DJ-style Automix and Hi-Res playback.
 [![Compose Multiplatform](https://img.shields.io/badge/Compose_Multiplatform-4285F4?logo=jetpackcompose&logoColor=white)](desktopApp)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-F05138?logo=swift&logoColor=white)](#download)
 [![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-555555?logo=apple&logoColor=white)](#download)
+[![Intel Mac](https://img.shields.io/badge/Intel_Mac-555555?logo=intel&logoColor=white)](#download)
 
 <br>
 
@@ -29,7 +30,7 @@ YouTube Music, your own library, DJ-style Automix and Hi-Res playback.
 </div>
 
 > [!IMPORTANT]
-> This is a dedicated Apple platform (macOS Apple Silicon & iOS) release fork of [BitChord](https://github.com/kushagrasinghx/BitChord) created by [Kushagra Singh](https://github.com/kushagrasinghx). It is not affiliated with, endorsed by, or connected to YouTube or Google in any way. Use it at your own discretion.
+> This is a dedicated Apple platform (macOS Apple Silicon & Intel, iOS) release fork of [BitChord](https://github.com/kushagrasinghx/BitChord) created by [Kushagra Singh](https://github.com/kushagrasinghx). It is not affiliated with, endorsed by, or connected to YouTube or Google in any way. Use it at your own discretion.
 
 ---
 
@@ -46,6 +47,18 @@ YouTube Music, your own library, DJ-style Automix and Hi-Res playback.
 
 **[Download BitChord-1.9.1.E4-macos-arm64.dmg (Latest Apple Silicon Release)](https://github.com/fumakill4/BitChord/releases/download/macos-v1.9.1.E4/BitChord-1.9.1.E4-macos-arm64.dmg)**<br>
 <sub>macOS Apple Silicon · Build 1.9.1.E4 · [Release notes](https://github.com/fumakill4/BitChord/releases/tag/macos-v1.9.1.E4)</sub>
+
+<br/>
+
+### 💻 macOS (Intel)
+<a href="../../releases/download/macos-v1.9.1.E4/BitChord-1.9.1.E4-macos-x64.dmg">
+  <img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/macos/cozy.svg" alt="Download for Intel Macs" height="60">
+</a>
+
+<br/>
+
+**[Download BitChord-1.9.1.E4-macos-x64.dmg (Intel Macs)](../../releases/download/macos-v1.9.1.E4/BitChord-1.9.1.E4-macos-x64.dmg)**<br>
+<sub>macOS Intel (x86_64) · Build 1.9.1.E4 · built by the [macOS Build](.github/workflows/macos.yml) workflow · [Release page](../../releases/tag/macos-v1.9.1.E4)</sub>
 
 <br/>
 
@@ -77,9 +90,11 @@ YouTube Music, your own library, DJ-style Automix and Hi-Res playback.
 
 ## <a id="install"></a>Install
 
-### 💻 Mac (Apple Silicon)
+### 💻 Mac (Apple Silicon or Intel)
 
-1. Download **`BitChord-1.9.1.E4-macos-arm64.dmg`** from the [macOS release](https://github.com/fumakill4/BitChord/releases/tag/macos-v1.9.1.E4) page.
+1. Download the DMG for your Mac's chip (Apple menu → **About This Mac**: *Chip: Apple M…* is Apple Silicon, *Processor: …Intel…* is Intel):
+   - Apple Silicon: **`BitChord-1.9.1.E4-macos-arm64.dmg`** from the [macOS release](https://github.com/fumakill4/BitChord/releases/tag/macos-v1.9.1.E4) page.
+   - Intel: **`BitChord-1.9.1.E4-macos-x64.dmg`** from this repository's [macOS release](../../releases/tag/macos-v1.9.1.E4) page.
 2. Open the `.dmg` file and drag **BitChord.app** into your **Applications** folder.
 3. **Gatekeeper Notice:** Because this is an open-source build without an Apple Developer ID signature, Gatekeeper may display a prompt on the first launch (*"BitChord is from an unidentified developer"*).  
    You can easily open it by running this command in Terminal:

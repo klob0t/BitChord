@@ -36,8 +36,14 @@ internal object DesktopUpdateChecker {
         val notes: String?,
     )
 
+    /** Set at build time by `-Pbitchord.update.repo=owner/name`, so a fork updates from itself. */
+    private val macReleaseRepository: String = System.getProperty("bitchord.update.repo")
+        ?.trim()
+        ?.takeIf { Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+").matches(it) }
+        ?: "fumakill4/BitChord"
+
     private val latestReleaseUrl = if (DesktopPlatform.isMac)
-        "https://api.github.com/repos/fumakill4/BitChord/releases?per_page=30"
+        "https://api.github.com/repos/$macReleaseRepository/releases?per_page=30"
     else "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest"
 
     private val macArm64: Boolean

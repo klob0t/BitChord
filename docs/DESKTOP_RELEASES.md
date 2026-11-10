@@ -125,7 +125,7 @@ iOS and Windows keep their own dedicated releases.
 
 Both Mac architectures come from the manual **macOS Build** workflow
 ([`.github/workflows/macos.yml`](../.github/workflows/macos.yml)): Actions → macOS Build → Run workflow,
-version `1.9.1.E4`. It builds `-macos-arm64` on `macos-14` and `-macos-x64` on `macos-15-intel`,
+version `1.9.1.E4`. It builds `-macos-arm64` on `macos-15` and `-macos-x64` on `macos-15-intel`,
 checks that every native in each bundle matches its CPU, and attaches the DMG, PKG and ZIP of both
 to the `macos-v<version>` release. It passes `-Pbitchord.update.repo=<owner>/<repo>` so the update
 check reads that repository's releases.
